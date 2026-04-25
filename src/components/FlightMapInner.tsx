@@ -2,10 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-
-export default function FlightMapDefault(props: Props) {
-  return <FlightMap {...props} />;
-}
 import { Plane, RefreshCw, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
