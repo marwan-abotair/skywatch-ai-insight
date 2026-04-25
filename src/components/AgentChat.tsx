@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Send, Sparkles, Square, AlertCircle } from "lucide-react";
 import { TRANSCRIPT } from "@/data/transcript";
+import { useLiveTranscript } from "@/stores/liveTranscript";
 import { cn } from "@/lib/utils";
 
 type Msg = { role: "user" | "assistant" | "system-note"; content: string };
@@ -28,9 +29,10 @@ Der **Hotel Fox Mike** ist um **15:36:18 UTC** auf der Route Sierra abgeflogen â
   },
 ];
 
-const TRANSCRIPT_TEXT = TRANSCRIPT.map((l) => `${l.time}  ${l.text}`).join("\n");
+const MOCK_TRANSCRIPT_TEXT = TRANSCRIPT.map((l) => `${l.time}  ${l.text}`).join("\n");
 
 export function AgentChat() {
+  const { lines: liveLines, status: liveStatus } = useLiveTranscript();
   const [messages, setMessages] = useState<Msg[]>(INITIAL);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
