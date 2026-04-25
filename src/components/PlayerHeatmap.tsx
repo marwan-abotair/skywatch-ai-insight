@@ -9,6 +9,10 @@ type Props = {
   enhanced: boolean;
   /** Called once the Web Audio graph is built so the parent can transcribe the live stream. */
   onStreamReady?: (stream: MediaStream | null) => void;
+  /** Notifies parent when the audio actually starts/stops playing. */
+  onPlayingChange?: (playing: boolean) => void;
+  /** When toggled true, attempt to start playback automatically (uses the user-gesture chain). */
+  autoPlay?: boolean;
 };
 
 function fmt(sec: number) {
@@ -18,7 +22,7 @@ function fmt(sec: number) {
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
-export function PlayerHeatmap({ audioUrl, enhanced, onStreamReady }: Props) {
+export function PlayerHeatmap({ audioUrl, enhanced, onStreamReady, onPlayingChange, autoPlay }: Props) {
   const [playing, setPlaying] = useState(false);
   const [pos, setPos] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -132,6 +136,11 @@ export function PlayerHeatmap({ audioUrl, enhanced, onStreamReady }: Props) {
     }
   }, [audioUrl]);
 
+  // Notify parent whenever local playing state flips.
+  useEffect(() => {
+    onPlayingChange?.(playing);
+  }, [playing, onPlayingChange]);
+
   const togglePlay = async () => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -153,6 +162,20 @@ export function PlayerHeatmap({ audioUrl, enhanced, onStreamReady }: Props) {
       setPlaying(false);
     }
   };
+
+  // Auto-start when parent flips to live (the user's Go-Live click is the gesture).
+  useEffect(() => {
+    if (autoPlay && audioRef.current?.paused) {
+      void togglePlay();
+    }
+    if (!autoPlay && audioRef.current && !audioRef.current.paused) {
+      audioRef.current.pause();
+      setPlaying(false);
+    }
+    // togglePlay is stable enough — we deliberately omit it to avoid re-triggering
+    // every render and accidentally hammering play().
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPlay]);
 
   const seekTo = (sec: number) => {
     const audio = audioRef.current;

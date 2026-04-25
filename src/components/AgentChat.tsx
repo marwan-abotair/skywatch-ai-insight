@@ -62,18 +62,36 @@ export function AgentChat() {
         .filter((m) => m.role !== "system-note")
         .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
-      // Build the actual context: live lines (preferred) appended to historical mock,
-      // capped to last 200 lines to keep the request small.
-      const liveText = liveLines
-        .map((l) => `${l.time}  ${l.speaker ? l.speaker + ": " : ""}${l.text}`)
-        .join("\n");
-      const combined = [MOCK_TRANSCRIPT_TEXT, liveText].filter(Boolean).join("\n");
-      const transcriptForRequest = combined.split("\n").slice(-200).join("\n");
+      // Source-priority: LIVE > pipeline-active-but-empty > DEMO mock.
+      // The agent should NEVER mix the two — that's how it ends up parroting
+      // mock timestamps as if they were real.
+      let transcriptForRequest: string;
+      let source: "live" | "live-empty" | "demo";
+      if (liveLines.length > 0) {
+        // Real transmissions: send only the live tail.
+        const liveText = liveLines
+          .map((l) => `${l.time}  ${l.speaker ? l.speaker + ": " : ""}${l.text}`)
+          .join("\n");
+        transcriptForRequest = liveText.split("\n").slice(-200).join("\n");
+        source = "live";
+      } else if (liveStatus === "live" || liveStatus === "starting" || liveStatus === "rate-limited") {
+        // Pipeline running but nothing transcribed yet (silent stream / startup).
+        transcriptForRequest = "";
+        source = "live-empty";
+      } else {
+        // Demo mode: no live pipeline yet, fall back to the mock transcript.
+        transcriptForRequest = MOCK_TRANSCRIPT_TEXT.split("\n").slice(-200).join("\n");
+        source = "demo";
+      }
 
       const resp = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: apiMessages, transcript: transcriptForRequest }),
+        body: JSON.stringify({
+          messages: apiMessages,
+          transcript: transcriptForRequest,
+          source,
+        }),
         signal: ac.signal,
       });
 
@@ -152,9 +170,17 @@ export function AgentChat() {
         <div className="flex-1">
           <h2 className="text-sm font-semibold leading-tight">Ask the SkyWatch Agent</h2>
           <p className="text-[11px] font-mono text-muted-foreground leading-tight">
-            Context: {TRANSCRIPT.length} mock + {liveLines.length} live lines{" "}
-            {liveStatus === "live" && <span className="text-primary">· LIVE</span>}
-            {liveStatus === "rate-limited" && <span className="text-pending">· paused</span>}
+            {liveLines.length > 0 ? (
+              <>
+                <span className="text-primary">LIVE</span> · {liveLines.length} transmissions
+              </>
+            ) : liveStatus === "live" || liveStatus === "starting" ? (
+              <span className="text-primary">LIVE · waiting for transmissions…</span>
+            ) : liveStatus === "rate-limited" ? (
+              <span className="text-pending">LIVE · rate-limit pause</span>
+            ) : (
+              <>DEMO MODE · {TRANSCRIPT.length} mock lines</>
+            )}
           </p>
         </div>
         <span className="text-[10px] uppercase tracking-wider font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/30">

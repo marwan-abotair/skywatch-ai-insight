@@ -19,6 +19,7 @@ type Props = {
   onEnhancedChange: (v: boolean) => void;
   isLive: boolean;
   onToggleLive: () => void;
+  isPlaying?: boolean;
 };
 
 const LEGEND = [
@@ -35,6 +36,7 @@ export function TopControlBar({
   onEnhancedChange,
   isLive,
   onToggleLive,
+  isPlaying,
 }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -139,6 +141,16 @@ export function TopControlBar({
           ))}
         </div>
 
+        {/* Press-play hint when live but audio is paused */}
+        {isLive && !isPlaying && (
+          <span
+            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono text-pending bg-pending/10 border border-pending/40 animate-fade-in"
+            title="Click play in the audio player to start transcription"
+          >
+            ▶ Press play to start
+          </span>
+        )}
+
         {/* Go Live button */}
         <button
           onClick={onToggleLive}
@@ -155,7 +167,7 @@ export function TopControlBar({
               isLive ? "bg-primary-foreground" : "bg-white",
             )}
           />
-          {isLive ? "LIVE" : "Go Live"}
+          {isLive ? (isPlaying ? "LIVE" : "LIVE · paused") : "Go Live"}
         </button>
       </div>
     </header>
