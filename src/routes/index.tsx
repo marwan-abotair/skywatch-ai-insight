@@ -7,6 +7,8 @@ import { AgentChat } from "@/components/AgentChat";
 import { FlightMap } from "@/components/FlightMap";
 import { FEEDS } from "@/data/feeds";
 import { Headphones, Map as MapIcon } from "lucide-react";
+import { LiveTranscriptProvider } from "@/stores/liveTranscript";
+import { useLiveTranscription } from "@/hooks/useLiveTranscription";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -25,16 +27,28 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
-  component: Dashboard,
+  component: DashboardWrapper,
 });
 
 type Tab = "audio" | "map";
+
+function DashboardWrapper() {
+  return (
+    <LiveTranscriptProvider>
+      <Dashboard />
+    </LiveTranscriptProvider>
+  );
+}
 
 function Dashboard() {
   const [feed, setFeed] = useState(FEEDS[0]);
   const [enhanced, setEnhanced] = useState(true);
   const [isLive, setIsLive] = useState(false);
   const [tab, setTab] = useState<Tab>("audio");
+  const [stream, setStream] = useState<MediaStream | null>(null);
+
+  // Drives MediaRecorder + /api/transcribe when Go Live is on AND the player has produced a stream.
+  useLiveTranscription({ enabled: isLive, stream });
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -65,7 +79,11 @@ function Dashboard() {
 
         {tab === "audio" ? (
           <>
-            <PlayerHeatmap audioUrl={feed.audioUrl} enhanced={enhanced} />
+            <PlayerHeatmap
+              audioUrl={feed.audioUrl}
+              enhanced={enhanced}
+              onStreamReady={setStream}
+            />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <TranscriptWindow />
               <AgentChat />
