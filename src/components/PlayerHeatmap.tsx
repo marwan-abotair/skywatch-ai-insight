@@ -9,6 +9,10 @@ type Props = {
   enhanced: boolean;
   /** Called once the Web Audio graph is built so the parent can transcribe the live stream. */
   onStreamReady?: (stream: MediaStream | null) => void;
+  /** Notifies parent when the audio actually starts/stops playing. */
+  onPlayingChange?: (playing: boolean) => void;
+  /** When toggled true, attempt to start playback automatically (uses the user-gesture chain). */
+  autoPlay?: boolean;
 };
 
 function fmt(sec: number) {
