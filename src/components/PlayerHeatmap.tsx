@@ -136,6 +136,11 @@ export function PlayerHeatmap({ audioUrl, enhanced, onStreamReady, onPlayingChan
     }
   }, [audioUrl]);
 
+  // Notify parent whenever local playing state flips.
+  useEffect(() => {
+    onPlayingChange?.(playing);
+  }, [playing, onPlayingChange]);
+
   const togglePlay = async () => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -157,6 +162,20 @@ export function PlayerHeatmap({ audioUrl, enhanced, onStreamReady, onPlayingChan
       setPlaying(false);
     }
   };
+
+  // Auto-start when parent flips to live (the user's Go-Live click is the gesture).
+  useEffect(() => {
+    if (autoPlay && audioRef.current?.paused) {
+      void togglePlay();
+    }
+    if (!autoPlay && audioRef.current && !audioRef.current.paused) {
+      audioRef.current.pause();
+      setPlaying(false);
+    }
+    // togglePlay is stable enough — we deliberately omit it to avoid re-triggering
+    // every render and accidentally hammering play().
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPlay]);
 
   const seekTo = (sec: number) => {
     const audio = audioRef.current;
