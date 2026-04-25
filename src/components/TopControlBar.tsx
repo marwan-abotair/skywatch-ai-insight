@@ -36,6 +36,7 @@ export function TopControlBar({
   onEnhancedChange,
   isLive,
   onToggleLive,
+  isPlaying,
 }: Props) {
   const [open, setOpen] = useState(false);
 
