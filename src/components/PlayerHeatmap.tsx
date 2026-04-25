@@ -61,9 +61,6 @@ export function PlayerHeatmap({ audioUrl, enhanced }: Props) {
       comp.knee.value = 24;
       comp.ratio.value = 4;
       comp.attack.value = 0.005;
-      comp.release.value: 0.18 as any; // (kept readable below)
-
-      // (Re-set release properly — TS doesn't allow object-literal assignment above.)
       comp.release.value = 0.18;
 
       const makeup = ctx.createGain();
