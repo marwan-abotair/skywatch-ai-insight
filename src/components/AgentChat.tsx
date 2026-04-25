@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Send, Sparkles, Square, AlertCircle } from "lucide-react";
 import { TRANSCRIPT } from "@/data/transcript";
+import { useLiveTranscript } from "@/stores/liveTranscript";
 import { cn } from "@/lib/utils";
 
 type Msg = { role: "user" | "assistant" | "system-note"; content: string };
@@ -28,9 +29,10 @@ Der **Hotel Fox Mike** ist um **15:36:18 UTC** auf der Route Sierra abgeflogen �
   },
 ];
 
-const TRANSCRIPT_TEXT = TRANSCRIPT.map((l) => `${l.time}  ${l.text}`).join("\n");
+const MOCK_TRANSCRIPT_TEXT = TRANSCRIPT.map((l) => `${l.time}  ${l.text}`).join("\n");
 
 export function AgentChat() {
+  const { lines: liveLines, status: liveStatus } = useLiveTranscript();
   const [messages, setMessages] = useState<Msg[]>(INITIAL);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -60,10 +62,18 @@ export function AgentChat() {
         .filter((m) => m.role !== "system-note")
         .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
+      // Build the actual context: live lines (preferred) appended to historical mock,
+      // capped to last 200 lines to keep the request small.
+      const liveText = liveLines
+        .map((l) => `${l.time}  ${l.speaker ? l.speaker + ": " : ""}${l.text}`)
+        .join("\n");
+      const combined = [MOCK_TRANSCRIPT_TEXT, liveText].filter(Boolean).join("\n");
+      const transcriptForRequest = combined.split("\n").slice(-200).join("\n");
+
       const resp = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: apiMessages, transcript: TRANSCRIPT_TEXT }),
+        body: JSON.stringify({ messages: apiMessages, transcript: transcriptForRequest }),
         signal: ac.signal,
       });
 
@@ -142,7 +152,9 @@ export function AgentChat() {
         <div className="flex-1">
           <h2 className="text-sm font-semibold leading-tight">Ask the SkyWatch Agent</h2>
           <p className="text-[11px] font-mono text-muted-foreground leading-tight">
-            Context: Last hour · {TRANSCRIPT.length} lines
+            Context: {TRANSCRIPT.length} mock + {liveLines.length} live lines{" "}
+            {liveStatus === "live" && <span className="text-primary">· LIVE</span>}
+            {liveStatus === "rate-limited" && <span className="text-pending">· paused</span>}
           </p>
         </div>
         <span className="text-[10px] uppercase tracking-wider font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/30">

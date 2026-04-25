@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 type Props = {
   audioUrl: string;
   enhanced: boolean;
+  /** Called once the Web Audio graph is built so the parent can transcribe the live stream. */
+  onStreamReady?: (stream: MediaStream | null) => void;
 };
 
 function fmt(sec: number) {
@@ -16,7 +18,7 @@ function fmt(sec: number) {
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
-export function PlayerHeatmap({ audioUrl, enhanced }: Props) {
+export function PlayerHeatmap({ audioUrl, enhanced, onStreamReady }: Props) {
   const [playing, setPlaying] = useState(false);
   const [pos, setPos] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -72,6 +74,9 @@ export function PlayerHeatmap({ audioUrl, enhanced }: Props) {
       dry.gain.value = enhanced ? 0 : 1;
       wet.gain.value = enhanced ? 1 : 0;
 
+      // Recording tap: a MediaStreamDestination collects whatever the user actually hears.
+      const recDest = ctx.createMediaStreamDestination();
+
       // Wire up
       src.connect(dry).connect(ctx.destination);
       src.connect(hp);
@@ -79,6 +84,9 @@ export function PlayerHeatmap({ audioUrl, enhanced }: Props) {
       peak.connect(comp);
       comp.connect(makeup);
       makeup.connect(wet).connect(ctx.destination);
+      // Tap both branches into the recorder destination (post-gain so toggle affects it)
+      dry.connect(recDest);
+      wet.connect(recDest);
 
       ctxRef.current = ctx;
       srcRef.current = src;
@@ -88,6 +96,8 @@ export function PlayerHeatmap({ audioUrl, enhanced }: Props) {
       peakRef.current = peak;
       compRef.current = comp;
       makeupRef.current = makeup;
+
+      onStreamReady?.(recDest.stream);
     } catch (e) {
       console.warn("WebAudio graph init failed", e);
     }

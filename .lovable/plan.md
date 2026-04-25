@@ -1,78 +1,125 @@
-## ATC Audio Intelligence Dashboard
+## Ziel
 
-Hochmodernes "Mission-Critical" Dashboard im Dark Mode mit Glassmorphism, Neon-Grün-Akzent (ai-coustics Style) und Monospace für Daten/Transkripte. Audio + Transkripte sind aktuell Mock-Daten, der SkyWatch AI-Agent antwortet aber **echt** über das Lovable AI Gateway auf Basis der angezeigten Transkripte. Echte LiveATC-Streams + Whisper-Transkription folgen in einem späteren Schritt.
+Aus dem statischen Mock-Dashboard wird eine echte Live-Pipeline:
 
-### Design-System
-- **Hintergrund**: Tiefes Anthrazit/Schiefergrau, subtile Noise-/Grid-Overlay
-- **Akzent**: Neon-Grün (ai-coustics) für Speech, aktive States, Enhanced-Glow
-- **Status-Farben**: Speech (neon-grün), Silent (grau), Pending (gelb/amber), Playing (orange), Live (rot pulsierend → grün live)
-- **Glassmorphism**: `backdrop-blur` + halbtransparente Panels mit feinen Rändern (1px border, low-opacity)
-- **Typo**: Inter/Geist Sans für UI, JetBrains Mono für Transkripte, Zeitstempel und Tabellen
-- **Animationen**: Pulsierender Live-Button, Glow-Transition beim Enhanced-Toggle, Fade-in für Chat-Nachrichten
+```
+Legal ATC Stream → Browser <audio> + Web-Audio-Filter (Enhanced)
+                ↓ MediaRecorder (15s Chunks)
+        POST /api/transcribe (Server Function, Gemini Audio Input)
+                ↓
+        Live-Transkript (state) → TranscriptWindow + Agent-Kontext
+```
 
-### Routen
-- `/` – Haupt-Dashboard
-- `/history` – Liste vergangener Sessions/Recordings (Mock)
-- `/settings` – Feed-Verwaltung, Audio-Defaults, AI-Modell-Auswahl
+OpenSky liefert parallel die Live-Flugpositionen für die Map (bereits implementiert).
 
-Gemeinsame Sticky-Sidebar / Top-Nav mit Logo "LiveATC AI-Analyzer" und Routen-Links.
+---
 
-### Dashboard-Layout (`/`)
+## 1. Audio-Quelle: legale ATC-Streams
 
-**1. Top Control Bar (sticky, glass)**
-- Links: Logo "LiveATC AI-Analyzer" mit kleinem Radar-Icon
-- Feed-Dropdown: "LSZB Twr/App/Dep (358 seg)" + weitere Demo-Feeds (LSZH, EDDF, KJFK …)
-- Mitte: Toggle "Raw Audio ↔ Enhanced (ai-coustics)" – Enhanced-Modus glüht neon-grün, kleiner Equalizer-Indikator
-- "Go Live" Button: rot pulsierend (inactive) → grün solid mit Live-Dot (active)
-- Rechts: Legende (Speech / Silent / Pending / Playing) als kleine farbige Quadrate mit Labels
+**Problem:** LiveATC.net verbietet Re-Streaming und blockt CORS. Wir nutzen stattdessen Streams, die explizit Re-Use erlauben oder volunteer-Feeds mit permissiver Lizenz.
 
-**2. Audio Player + Activity Heatmap**
-- Glass-Card mit modernem Player: Play/Pause, Skip ±10s, Fortschrittsbalken (klickbar), Zeitanzeige (Mono), Lautstärke-Slider
-- Darunter Activity Heatmap: ~40×10 Grid abgerundeter Quadrate
-  - Deterministisch generiert mit realistischer Verteilung (~70% silent, ~25% speech, einige pending, 1 playing)
-  - Hover zeigt Tooltip mit Segment-Zeit + Status
-  - Klick auf Segment springt im Player zu dieser Position
+**Konkrete Quellen** (alle CORS-fähig oder über Edge-Proxy mit klarer Lizenz):
+- **OpenSky Network ATC samples** – einige Flughäfen haben offene Test-Streams
+- **Broadcastify** hat ein paar permissive Aviation-Feeds (mit korrekter Attribution)
+- **Fallback:** lange Loops aus archive.org-Recordings (z.B. EHAM, JFK, KLAX), die wir als "Live" simulieren
 
-**3. Split-Screen unten (2 Spalten, gleich hoch, scrollbar)**
+`src/data/feeds.ts` wird erweitert um:
+```ts
+type Feed = {
+  ...
+  liveStreamUrl?: string;    // Icecast/MP3, optional
+  loopUrl: string;           // immer vorhanden, archive.org Fallback
+  isLiveProxied: boolean;    // true = via /api/stream proxy
+};
+```
 
-*Linke Spalte – Live Transcript Window*
-- Terminal-/Log-Look mit dezentem Grid-Hintergrund
-- Jede Zeile: `15:37:30` (Mono, gedimmt) + Status-Icon (🚫 silent, ✈️ speech) + Transkript-Text
-- Callsigns wie "Hotel Bravo", "Swiss 123", "Speedbird" werden als Pills/farbig hervorgehoben (neon-grün auf dunklem Hintergrund)
-- Auto-scroll-to-bottom Toggle, Pause-Button beim Hover
-- Suchleiste oben zum Filtern der Transkripte
+Wenn `liveStreamUrl` gesetzt UND CORS-fähig → direkt im Browser. Sonst → über kurze Edge-Proxy-Route `/api/stream/$feedId` (~25s CPU-Budget pro Request, Browser reconnected automatisch via `<audio>` Tag).
 
-*Rechte Spalte – AI Agent Interface*
-- Header: "Ask the SkyWatch Agent" + Sub: "Context: Last hour · 360 lines"
-- Chat-Verlauf:
-  - User-Bubbles rechts, akzent-blau
-  - Agent-Bubbles links, glass-grau, Markdown + Tabellen-Rendering (Tailwind-Tabelle mit Sticky-Header, Mono-Zellen)
-  - System-Hinweise zentriert klein grau (z.B. "uploading 2 files, analyzing 360 lines…")
-- **Funktional**: Edge Function `chat` ruft Lovable AI Gateway (`google/gemini-3-flash-preview`) mit SSE-Streaming auf. Aktuelles Transkript wird als Kontext mitgesendet. System-Prompt: "Du bist SkyWatch, ein ATC-Funk-Analyse-Assistent. Antworte präzise, nutze Markdown-Tabellen für strukturierte Daten (Spalten: Zeit (UTC), Rufzeichen, Details)."
-- Demo-Erstkonversation vorgefüllt (User-Frage + System-Status + Agent-Tabellenantwort mit "Hotel Fox – Lift off on route Sierra…")
-- Token-by-Token Streaming-Rendering, Stop-Button, Fehler-Toasts für 429/402
-- Eingabefeld unten mit Placeholder "e.g. which callsigns appeared most often?", Senden-Button (Icon + Enter)
+---
 
-### History-Seite (`/history`)
-- Tabelle/Liste vergangener Sessions: Datum, Feed, Dauer, Anzahl Speech-Segmente, Anzahl Callsigns
-- Jede Zeile klickbar (führt aktuell zurück zum Dashboard mit dieser Session – Mock)
-- Filter: Datum, Feed, nur mit AI-Zusammenfassung
+## 2. Web-Audio-Filter (bereits da, bleibt)
 
-### Settings-Seite (`/settings`)
-- Feed-Management: Liste der konfigurierten Feeds, Add/Remove (Mock-Persistenz im LocalStorage)
-- Audio: Standard-Lautstärke, Auto-Enhanced-Toggle Default, Auto-Play
-- AI-Agent: Modellwahl (Flash / Pro), Kontextfenster (letzte 15 Min / 1 h / komplette Session), System-Prompt-Editor (advanced)
+`PlayerHeatmap.tsx` hat schon Highpass + Peaking + Compressor + Crossfade. Wird unverändert übernommen, nur die Quelle wechselt von statischer MP3 auf Live-URL bzw. Loop.
 
-### Technik & Backend
-- **Lovable Cloud** wird aktiviert für Edge Function + Secret-Verwaltung
-- Edge Function `chat` (SSE-Streaming, CORS, 429/402 Handling) wie im Standard-Pattern – nutzt `LOVABLE_API_KEY`
-- Mock-Transkripte als TypeScript-Modul (`src/data/mockTranscript.ts`), 360 Zeilen, realistische ATC-Phrasen mit Callsigns
-- Mock-Heatmap deterministisch aus Seed in `src/lib/heatmap.ts`
-- Settings persistieren via `localStorage`, History als statisches Mock-Array
-- Lucide-Icons: `Radio`, `Plane`, `Mic`, `MicOff`, `Play`, `Pause`, `Volume2`, `Send`, `Sparkles`, `Activity`, `Settings`, `History`, `Search`
+---
 
-### Späterer Ausbau (nicht in diesem Schritt)
-- Echte LiveATC-Stream-Anbindung (Backend-Proxy + HLS)
-- Whisper-basierte Echtzeit-Transkription
-- ai-coustics Audio-Enhancement (echte API)
-- Speicherung von Sessions in Lovable Cloud DB statt LocalStorage
+## 3. Live-Transkription via Gemini
+
+### Neue Server-Route `src/routes/api/transcribe.ts`
+
+- `POST` empfängt `multipart/form-data` mit einem ~15s Audio-Chunk (webm/opus, MediaRecorder default)
+- ruft Lovable AI Gateway mit `google/gemini-2.5-flash` auf, Audio als base64 inline_data, Prompt: *"Transcribe this ATC radio recording. Output JSON: `{ lines: [{time, speaker, text}] }`. Use UTC timestamps relative to NOW. If silence/unintelligible, return empty array."*
+- Tool-Calling für strukturierten Output (siehe knowledge: structured output via tool calling)
+- Behandelt 429/402 wie der bestehende `/api/chat` Handler
+- CORS-Headers + OPTIONS-Handler
+
+### Neuer Hook `src/hooks/useLiveTranscription.ts`
+
+- Bekommt das `<audio>`-Element bzw. dessen `MediaStream` (via `audio.captureStream()`)
+- Startet `MediaRecorder` mit `timeslice = 15000`
+- Bei jedem `dataavailable` Event → POST an `/api/transcribe`
+- Hängt empfangene Lines an einen `liveTranscript: TranscriptLine[]` State
+- Cleanup auf Stop
+
+### Neuer Store `src/stores/liveTranscript.ts`
+
+Einfacher Zustand (entweder Zustand/Jotai oder simpler React Context), damit:
+- `TranscriptWindow` die Live-Lines + die Mock-Lines mergen kann
+- `AgentChat` die letzten ~30 min an den Chat-Endpoint mitschicken kann (statt der hardcoded `TRANSCRIPT_TEXT`)
+
+---
+
+## 4. UI-Integration
+
+### `TopControlBar`
+- "Go Live" Button startet jetzt wirklich:
+  - Audio-Element lädt `liveStreamUrl` (oder loop)
+  - Hook startet MediaRecorder + Transcription
+- Indikator zeigt "● LIVE · transcribing" wenn aktiv
+
+### `TranscriptWindow`
+- Zeigt zuerst Live-Lines (farblich abgehoben, neueste oben/unten je nach autoScroll)
+- Mock-Lines bleiben als historischer Kontext darunter
+- "X new lines" Indikator bei eingehenden Chunks
+
+### `AgentChat`
+- Statt `TRANSCRIPT_TEXT` aus dem Mock → liest aus dem LiveTranscript-Store
+- System-Prompt-Erweiterung: *"Transcript below contains LIVE ATC from {feed.station}, last update {timestamp}. Answer using only this context."*
+
+---
+
+## 5. Edge-Runtime-Constraints
+
+- Gemini-Call pro Chunk: ~2-3s Latenz, gut innerhalb 30s CPU-Budget
+- Audio-Chunks ~15s Opus = ~30-50KB → unproblematisch
+- Bei `429` (Rate-Limit) → Toast + Pause der nächsten Chunks für 30s
+- Bei `402` (Credits) → klarer Fehlertoast mit Settings-Link
+
+---
+
+## Geänderte / neue Dateien
+
+**Neu:**
+- `src/routes/api/transcribe.ts` – Gemini Audio-Input Endpoint
+- `src/routes/api/stream.$feedId.ts` – optionaler Edge-Proxy für nicht-CORS Streams
+- `src/hooks/useLiveTranscription.ts` – MediaRecorder + Upload-Loop
+- `src/stores/liveTranscript.ts` – geteilter State für Transkript + Chat
+
+**Geändert:**
+- `src/data/feeds.ts` – neue Felder, geprüfte legale Stream-URLs
+- `src/components/PlayerHeatmap.tsx` – Quelle dynamisch, MediaStream rausgeben
+- `src/components/TopControlBar.tsx` – Go-Live triggert echte Pipeline
+- `src/components/TranscriptWindow.tsx` – Merge Live + Mock
+- `src/components/AgentChat.tsx` – Transcript aus Store statt hardcoded
+- `src/routes/index.tsx` – State-Wiring
+
+**Unverändert:** Map (OpenSky ist bereits live), Settings, History, ai-coustics (nicht aktiviert).
+
+---
+
+## Nicht enthalten / Limits (ehrlich)
+
+- **Keine perfekte Echtzeit-Transkription.** 15s Chunks = max. ~17s Verzögerung pro Line. Streaming-STT würde dedizierten Provider (Deepgram/Whisper Realtime) brauchen.
+- **Kein ai-coustics.** Web-Audio-Filter reicht laut deiner Wahl.
+- **LiveATC.net bleibt ausgeschlossen.** Wenn du später eine eigene SDR-URL hast, einfach in Settings eintragen → läuft direkt.
+- **Gemini-Genauigkeit bei ATC-Jargon** ist ok, aber nicht so gut wie spezialisierte ATC-STT. Wir können später optional auf OpenAI Whisper umsteigen.
