@@ -190,3 +190,5 @@ export function FlightMap({ bbox, station }: Props) {
     </section>
   );
 }
+
+export default FlightMap;
