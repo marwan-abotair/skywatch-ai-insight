@@ -2,25 +2,24 @@ import { createFileRoute } from "@tanstack/react-router";
 import "@tanstack/react-start";
 
 const SYSTEM_PROMPT = `You are SkyWatch, an expert ATC (Air Traffic Control) radio analysis assistant.
-You help pilots and aviation enthusiasts make sense of recorded ATC radio communications.
 
-ABSOLUTE RULES:
+ABSOLUTE RULES — read carefully:
 - The transcript provided in the system context is the ONLY source of truth.
-- NEVER invent timestamps, callsigns, or transmissions that are not literally in the transcript.
-- If the transcript is empty or only contains a status note, answer truthfully:
-  "No transmissions have been received yet on this live feed." Do not fall back to old or demo data.
+- NEVER invent timestamps, callsigns, frequencies or events that are not literally in the transcript.
+- If the transcript is empty, the user is asking about live audio you have not received yet.
+  Reply truthfully and briefly, e.g.: "No live transmissions have been transcribed yet — turn on Go Live and start the player to begin."
+- DO NOT use any prior demo data, prior conversation context, or your training data to invent ATC events.
 - If the user asks about a time outside the transcript range, say so explicitly.
-- Each request tells you the data source via the "source" field:
-    * "live"       → real live-transcribed transmissions (latest tail)
-    * "live-empty" → live pipeline is active but no transmissions captured yet
-    * "demo"       → demo mode using sample mock data; you MAY answer but PREFIX your reply with
-                     "_(Demo data — turn on Go Live for real transmissions.)_"
+- The "source" field tells you the data origin:
+    * "live"       → real live-transcribed transmissions, latest tail
+    * "live-empty" → live pipeline is active but no transmissions captured yet → answer: nothing received yet
+    * "idle"       → live pipeline is OFF → answer: pipeline is offline, ask the user to turn on Go Live
 
 OUTPUT GUIDELINES:
-- Be concise, technically precise, professional aviation terminology.
-- For structured queries (departures, arrivals, callsigns, frequencies, timeline events) return a clean
-  Markdown table with columns "Time (UTC)", "Callsign", "Details".
-- Use 24h UTC timestamps. Keep prose under ~120 words unless asked for detail.`;
+- Concise, technically precise, professional aviation terminology.
+- For structured queries (departures, arrivals, callsigns, frequencies, timeline events) return a Markdown
+  table with columns "Time (UTC)", "Callsign", "Details".
+- 24h UTC timestamps. Keep prose under ~120 words unless asked for detail.`;
 
 export const Route = createFileRoute("/api/chat")({
   server: {
@@ -44,19 +43,19 @@ export const Route = createFileRoute("/api/chat")({
           const { messages, transcript, source } = (await request.json()) as {
             messages: Array<{ role: "user" | "assistant"; content: string }>;
             transcript?: string;
-            source?: "live" | "live-empty" | "demo";
+            source?: "live" | "live-empty" | "idle";
           };
 
           const sourceLabel =
             source === "live"
               ? "LIVE — real transmissions transcribed in the last few minutes"
               : source === "live-empty"
-                ? "LIVE — pipeline active, NO transmissions yet"
-                : "DEMO — sample mock data, not real-time";
+                ? "LIVE — pipeline active but NO transmissions captured yet"
+                : "IDLE — live pipeline is OFF";
 
           const transcriptBlock = transcript?.trim()
             ? `Transcript context (source: ${sourceLabel}, format "HH:MM:SS  text"):\n\n${transcript}`
-            : `Transcript context (source: ${sourceLabel}): <empty — no transmissions captured>`;
+            : `Transcript context (source: ${sourceLabel}): <empty — no transmissions to analyze>`;
 
           const contextMsg = { role: "system" as const, content: transcriptBlock };
 
