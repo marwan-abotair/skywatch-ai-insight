@@ -19,6 +19,7 @@ type Props = {
   onEnhancedChange: (v: boolean) => void;
   isLive: boolean;
   onToggleLive: () => void;
+  isPlaying?: boolean;
 };
 
 const LEGEND = [
