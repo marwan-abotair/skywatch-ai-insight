@@ -46,9 +46,10 @@ function Dashboard() {
   const [isLive, setIsLive] = useState(false);
   const [tab, setTab] = useState<Tab>("audio");
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
 
-  // Drives MediaRecorder + /api/transcribe when Go Live is on AND the player has produced a stream.
-  useLiveTranscription({ enabled: isLive, stream });
+  // Drives MediaRecorder + /api/transcribe when Go Live is on AND the audio is actually playing.
+  useLiveTranscription({ enabled: isLive && isPlaying, stream });
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -59,6 +60,7 @@ function Dashboard() {
         onEnhancedChange={setEnhanced}
         isLive={isLive}
         onToggleLive={() => setIsLive((v) => !v)}
+        isPlaying={isPlaying}
       />
 
       <main className="flex-1 mx-auto w-full max-w-[1600px] px-4 lg:px-6 py-6 space-y-6">
@@ -83,6 +85,8 @@ function Dashboard() {
               audioUrl={feed.audioUrl}
               enhanced={enhanced}
               onStreamReady={setStream}
+              onPlayingChange={setIsPlaying}
+              autoPlay={isLive}
             />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <TranscriptWindow />
