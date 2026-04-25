@@ -22,7 +22,7 @@ function fmt(sec: number) {
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
-export function PlayerHeatmap({ audioUrl, enhanced, onStreamReady }: Props) {
+export function PlayerHeatmap({ audioUrl, enhanced, onStreamReady, onPlayingChange, autoPlay }: Props) {
   const [playing, setPlaying] = useState(false);
   const [pos, setPos] = useState(0);
   const [duration, setDuration] = useState(0);
