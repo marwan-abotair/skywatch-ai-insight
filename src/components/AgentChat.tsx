@@ -151,8 +151,10 @@ export function AgentChat() {
         <Sparkles className="h-4 w-4 text-primary" />
         <div className="flex-1">
           <h2 className="text-sm font-semibold leading-tight">Ask the SkyWatch Agent</h2>
-          <p className="text-[11px] font-mono text-muted-foreground leading-tight">
-            Context: Last hour · {TRANSCRIPT.length} lines
+          <p className="[11px] font-mono text-muted-foreground leading-tight">
+            Context: {TRANSCRIPT.length} mock + {liveLines.length} live lines{" "}
+            {liveStatus === "live" && <span className="text-primary">· LIVE</span>}
+            {liveStatus === "rate-limited" && <span className="text-pending">· paused</span>}
           </p>
         </div>
         <span className="text-[10px] uppercase tracking-wider font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/30">
