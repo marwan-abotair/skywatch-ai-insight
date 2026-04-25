@@ -43,7 +43,7 @@ function Dashboard() {
 
       <main className="flex-1 mx-auto w-full max-w-[1600px] px-4 lg:px-6 py-6 space-y-6">
         <h1 className="sr-only">ATC Audio Intelligence Dashboard</h1>
-        <PlayerHeatmap />
+        <PlayerHeatmap audioUrl={feed.audioUrl} enhanced={enhanced} />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <TranscriptWindow />
           <AgentChat />
