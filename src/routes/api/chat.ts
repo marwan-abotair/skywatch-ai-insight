@@ -71,7 +71,7 @@ export const Route = createFileRoute("/api/chat")({
               stream: true,
               messages: [
                 { role: "system", content: SYSTEM_PROMPT },
-                ...(contextMsg ? [contextMsg] : []),
+                contextMsg,
                 ...messages,
               ],
             }),
