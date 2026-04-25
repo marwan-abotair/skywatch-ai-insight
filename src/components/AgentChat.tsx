@@ -62,10 +62,18 @@ export function AgentChat() {
         .filter((m) => m.role !== "system-note")
         .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
+      // Build the actual context: live lines (preferred) appended to historical mock,
+      // capped to last 200 lines to keep the request small.
+      const liveText = liveLines
+        .map((l) => `${l.time}  ${l.speaker ? l.speaker + ": " : ""}${l.text}`)
+        .join("\n");
+      const combined = [MOCK_TRANSCRIPT_TEXT, liveText].filter(Boolean).join("\n");
+      const transcriptForRequest = combined.split("\n").slice(-200).join("\n");
+
       const resp = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: apiMessages, transcript: TRANSCRIPT_TEXT }),
+        body: JSON.stringify({ messages: apiMessages, transcript: transcriptForRequest }),
         signal: ac.signal,
       });
 
