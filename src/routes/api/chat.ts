@@ -4,13 +4,23 @@ import "@tanstack/react-start";
 const SYSTEM_PROMPT = `You are SkyWatch, an expert ATC (Air Traffic Control) radio analysis assistant.
 You help pilots and aviation enthusiasts make sense of recorded ATC radio communications.
 
-Guidelines:
-- Be concise, technically precise, and use professional aviation terminology.
-- When the user asks for structured data (departures, arrivals, callsigns, frequencies, timeline events),
-  return a clean Markdown table. Prefer the columns: "Time (UTC)", "Callsign", "Details".
-- Always reference the actual transcript context the user provides; do not invent transmissions.
-- Use 24h UTC timestamps, monospace-friendly formatting.
-- Keep prose answers under ~120 words unless the user asks for detail.`;
+ABSOLUTE RULES:
+- The transcript provided in the system context is the ONLY source of truth.
+- NEVER invent timestamps, callsigns, or transmissions that are not literally in the transcript.
+- If the transcript is empty or only contains a status note, answer truthfully:
+  "No transmissions have been received yet on this live feed." Do not fall back to old or demo data.
+- If the user asks about a time outside the transcript range, say so explicitly.
+- Each request tells you the data source via the "source" field:
+    * "live"       → real live-transcribed transmissions (latest tail)
+    * "live-empty" → live pipeline is active but no transmissions captured yet
+    * "demo"       → demo mode using sample mock data; you MAY answer but PREFIX your reply with
+                     "_(Demo data — turn on Go Live for real transmissions.)_"
+
+OUTPUT GUIDELINES:
+- Be concise, technically precise, professional aviation terminology.
+- For structured queries (departures, arrivals, callsigns, frequencies, timeline events) return a clean
+  Markdown table with columns "Time (UTC)", "Callsign", "Details".
+- Use 24h UTC timestamps. Keep prose under ~120 words unless asked for detail.`;
 
 export const Route = createFileRoute("/api/chat")({
   server: {
@@ -31,17 +41,24 @@ export const Route = createFileRoute("/api/chat")({
             });
           }
 
-          const { messages, transcript } = (await request.json()) as {
+          const { messages, transcript, source } = (await request.json()) as {
             messages: Array<{ role: "user" | "assistant"; content: string }>;
             transcript?: string;
+            source?: "live" | "live-empty" | "demo";
           };
 
-          const contextMsg = transcript
-            ? {
-                role: "system" as const,
-                content: `Transcript context (last hour, monospace log lines, format "HH:MM:SS  text"):\n\n${transcript}`,
-              }
-            : null;
+          const sourceLabel =
+            source === "live"
+              ? "LIVE — real transmissions transcribed in the last few minutes"
+              : source === "live-empty"
+                ? "LIVE — pipeline active, NO transmissions yet"
+                : "DEMO — sample mock data, not real-time";
+
+          const transcriptBlock = transcript?.trim()
+            ? `Transcript context (source: ${sourceLabel}, format "HH:MM:SS  text"):\n\n${transcript}`
+            : `Transcript context (source: ${sourceLabel}): <empty — no transmissions captured>`;
+
+          const contextMsg = { role: "system" as const, content: transcriptBlock };
 
           const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
