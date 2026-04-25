@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 type Props = {
   audioUrl: string;
   enhanced: boolean;
+  /** Called once the Web Audio graph is built so the parent can transcribe the live stream. */
+  onStreamReady?: (stream: MediaStream | null) => void;
 };
 
 function fmt(sec: number) {
@@ -16,7 +18,7 @@ function fmt(sec: number) {
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
-export function PlayerHeatmap({ audioUrl, enhanced }: Props) {
+export function PlayerHeatmap({ audioUrl, enhanced, onStreamReady }: Props) {
   const [playing, setPlaying] = useState(false);
   const [pos, setPos] = useState(0);
   const [duration, setDuration] = useState(0);
