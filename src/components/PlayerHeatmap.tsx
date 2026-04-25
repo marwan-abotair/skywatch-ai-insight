@@ -74,6 +74,9 @@ export function PlayerHeatmap({ audioUrl, enhanced, onStreamReady }: Props) {
       dry.gain.value = enhanced ? 0 : 1;
       wet.gain.value = enhanced ? 1 : 0;
 
+      // Recording tap: a MediaStreamDestination collects whatever the user actually hears.
+      const recDest = ctx.createMediaStreamDestination();
+
       // Wire up
       src.connect(dry).connect(ctx.destination);
       src.connect(hp);
@@ -81,6 +84,9 @@ export function PlayerHeatmap({ audioUrl, enhanced, onStreamReady }: Props) {
       peak.connect(comp);
       comp.connect(makeup);
       makeup.connect(wet).connect(ctx.destination);
+      // Tap both branches into the recorder destination (post-gain so toggle affects it)
+      dry.connect(recDest);
+      wet.connect(recDest);
 
       ctxRef.current = ctx;
       srcRef.current = src;
@@ -90,6 +96,8 @@ export function PlayerHeatmap({ audioUrl, enhanced, onStreamReady }: Props) {
       peakRef.current = peak;
       compRef.current = comp;
       makeupRef.current = makeup;
+
+      onStreamReady?.(recDest.stream);
     } catch (e) {
       console.warn("WebAudio graph init failed", e);
     }
