@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import "@tanstack/react-start";
 
 const SYSTEM_PROMPT = `You are SkyWatch, an expert ATC (Air Traffic Control) radio analysis assistant.
 You help pilots and aviation enthusiasts make sense of recorded ATC radio communications.
