@@ -6,18 +6,21 @@ export type Feed = {
   audioUrl: string;
 };
 
-// Demo audio (CORS-enabled, public). The original archive.org ATC samples
-// returned 404/503 and broke playback — these stable demo MP3s are used as a
-// stand-in until a proper LiveATC-compatible source is wired in.
-const ATC_SAMPLE_1 = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
-const ATC_SAMPLE_2 = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3";
-const ATC_SAMPLE_3 = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3";
+// Real ATC recordings hosted on archive.org (CORS-enabled, public-domain user uploads).
+// LiveATC.net itself blocks direct browser playback (Cloudflare bot challenge) and forbids
+// re-streaming via TOS, so we use these dedicated archive.org ATC recordings instead.
+const ATC_MMMX_TWR =
+  "https://archive.org/download/audio-atc-torre-control-aicm-21-julio-2025-1300-utc/MMMX1-Twr-Jul-21-2025-1300Z.mp3";
+const ATC_EIDW =
+  "https://archive.org/download/dublinatc101023/DUBLIN.mp3";
+const ATC_EPWA_APP =
+  "https://archive.org/download/epwa-app-may-26-2023-1500-z/EPWA-App-May-26-2023-1500Z.mp3";
 
 export const FEEDS: Feed[] = [
-  { id: "kjfk", label: "KJFK Tower", segments: 489, station: "New York JFK", audioUrl: ATC_SAMPLE_1 },
-  { id: "klax", label: "KLAX Ground", segments: 412, station: "Los Angeles", audioUrl: ATC_SAMPLE_2 },
-  { id: "kbos", label: "KBOS Approach", segments: 358, station: "Boston Logan", audioUrl: ATC_SAMPLE_3 },
-  { id: "lszh", label: "LSZH Tower", segments: 412, station: "Zurich", audioUrl: ATC_SAMPLE_1 },
-  { id: "eddf", label: "EDDF Approach", segments: 521, station: "Frankfurt", audioUrl: ATC_SAMPLE_2 },
-  { id: "egll", label: "EGLL Heathrow Director", segments: 472, station: "London Heathrow", audioUrl: ATC_SAMPLE_3 },
+  { id: "mmmx", label: "MMMX Tower", segments: 489, station: "Mexico City AICM", audioUrl: ATC_MMMX_TWR },
+  { id: "eidw", label: "EIDW Tower", segments: 412, station: "Dublin International", audioUrl: ATC_EIDW },
+  { id: "epwa", label: "EPWA Approach", segments: 358, station: "Warsaw Chopin", audioUrl: ATC_EPWA_APP },
+  { id: "mmmx-2", label: "MMMX Tower · Replay", segments: 412, station: "Mexico City AICM", audioUrl: ATC_MMMX_TWR },
+  { id: "eidw-2", label: "EIDW Tower · Replay", segments: 521, station: "Dublin International", audioUrl: ATC_EIDW },
+  { id: "epwa-2", label: "EPWA Approach · Replay", segments: 472, station: "Warsaw Chopin", audioUrl: ATC_EPWA_APP },
 ];
