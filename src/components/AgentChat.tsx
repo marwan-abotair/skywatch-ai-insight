@@ -1,22 +1,36 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Send, Sparkles, Square, AlertCircle, Radio } from "lucide-react";
-import { useLiveTranscript } from "@/stores/liveTranscript";
+import { Send, Sparkles, Square, AlertCircle } from "lucide-react";
+import { TRANSCRIPT } from "@/data/transcript";
 import { cn } from "@/lib/utils";
 
 type Msg = { role: "user" | "assistant" | "system-note"; content: string };
 
 const INITIAL: Msg[] = [
   {
-    role: "system-note",
-    content:
-      "Press “Go Live” and Play to start real-time transcription. The agent will only answer based on what it actually hears.",
+    role: "user",
+    content: "Wann ist das Flugzeug abgeflogen, von dem ich gerade abhöre?",
+  },
+  { role: "system-note", content: "uploading 2 files, analyzing 360 lines…" },
+  {
+    role: "assistant",
+    content: `Basierend auf dem aktuellen Transkript-Kontext (LSZB Tower, letzte Stunde) habe ich diese Departures gefunden:
+
+| Zeit (UTC) | Rufzeichen | Details |
+| --- | --- | --- |
+| 14:35:31 | Hotel Bravo Charlie Delta Echo | Cleared for takeoff, runway 14, wind 140°/6kt |
+| 14:49:21 | Hotel Bravo Romeo | Cleared for takeoff, runway 32, wind 320°/4kt |
+| 15:16:40 | Speedbird 712 | Cleared for takeoff, runway 14, wind 150°/7kt |
+| 15:36:18 | **Hotel Fox Mike** | Lift off on route Sierra, runway 14, wind 140°/5kt |
+
+Der **Hotel Fox Mike** ist um **15:36:18 UTC** auf der Route Sierra abgeflogen — vermutlich der Flieger, den du gerade hörst.`,
   },
 ];
 
+const TRANSCRIPT_TEXT = TRANSCRIPT.map((l) => `${l.time}  ${l.text}`).join("\n");
+
 export function AgentChat() {
-  const { lines: liveLines, status: liveStatus, lastChunkAt } = useLiveTranscript();
   const [messages, setMessages] = useState<Msg[]>(INITIAL);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -27,10 +41,6 @@ export function AgentChat() {
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
-
-  // Stale-data hint: live but no new chunk for >2 min.
-  const isStale =
-    !!lastChunkAt && Date.now() - lastChunkAt > 120_000 && liveLines.length > 0;
 
   const send = async () => {
     const text = input.trim();
@@ -45,43 +55,15 @@ export function AgentChat() {
     abortRef.current = ac;
 
     try {
+      // Strip system-note entries before sending; gateway expects user/assistant only.
       const apiMessages = next
         .filter((m) => m.role !== "system-note")
         .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
-      // STRICT live-only mode: never send mock data to the model.
-      // When the pipeline is on but empty, send empty + status hint so the
-      // model answers honestly instead of inventing.
-      let transcriptForRequest: string;
-      let source: "live" | "live-empty" | "idle";
-      if (liveLines.length > 0) {
-        transcriptForRequest = liveLines
-          .map((l) => `${l.time}  ${l.speaker ? l.speaker + ": " : ""}${l.text}`)
-          .join("\n")
-          .split("\n")
-          .slice(-200)
-          .join("\n");
-        source = "live";
-      } else if (
-        liveStatus === "live" ||
-        liveStatus === "starting" ||
-        liveStatus === "rate-limited"
-      ) {
-        transcriptForRequest = "";
-        source = "live-empty";
-      } else {
-        transcriptForRequest = "";
-        source = "idle";
-      }
-
       const resp = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: apiMessages,
-          transcript: transcriptForRequest,
-          source,
-        }),
+        body: JSON.stringify({ messages: apiMessages, transcript: TRANSCRIPT_TEXT }),
         signal: ac.signal,
       });
 
@@ -90,6 +72,7 @@ export function AgentChat() {
         throw new Error(err.error || `HTTP ${resp.status}`);
       }
 
+      // Add empty assistant message we'll fill
       setMessages((m) => [...m, { role: "assistant", content: "" }]);
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -137,6 +120,7 @@ export function AgentChat() {
       } else {
         setError((e as Error).message);
         setMessages((m) => {
+          // Drop trailing empty assistant placeholder if any
           if (m.length && m[m.length - 1].role === "assistant" && m[m.length - 1].content === "") {
             return m.slice(0, -1);
           }
@@ -157,23 +141,8 @@ export function AgentChat() {
         <Sparkles className="h-4 w-4 text-primary" />
         <div className="flex-1">
           <h2 className="text-sm font-semibold leading-tight">Ask the SkyWatch Agent</h2>
-          <p className="text-[11px] font-mono text-muted-foreground leading-tight inline-flex items-center gap-1.5">
-            {liveLines.length > 0 ? (
-              <>
-                <Radio className="h-2.5 w-2.5 text-primary" />
-                <span className="text-primary">LIVE</span>
-                <span>· {liveLines.length} transmissions</span>
-                {isStale && (
-                  <span className="text-pending">· stale &gt;2 min</span>
-                )}
-              </>
-            ) : liveStatus === "live" || liveStatus === "starting" ? (
-              <span className="text-primary">LIVE · waiting for audio…</span>
-            ) : liveStatus === "rate-limited" ? (
-              <span className="text-pending">LIVE · rate-limit pause</span>
-            ) : (
-              <span>OFFLINE · turn on “Go Live” for transcription</span>
-            )}
+          <p className="text-[11px] font-mono text-muted-foreground leading-tight">
+            Context: Last hour · {TRANSCRIPT.length} lines
           </p>
         </div>
         <span className="text-[10px] uppercase tracking-wider font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/30">
@@ -186,7 +155,7 @@ export function AgentChat() {
           if (m.role === "system-note") {
             return (
               <div key={i} className="flex justify-center animate-fade-in">
-                <span className="text-[11px] font-mono text-muted-foreground bg-white/5 px-3 py-1.5 rounded-full border border-white/10 max-w-[90%] text-center">
+                <span className="text-[11px] font-mono text-muted-foreground bg-white/5 px-3 py-1 rounded-full border border-white/10">
                   {m.content}
                 </span>
               </div>

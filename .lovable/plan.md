@@ -1,57 +1,78 @@
-## Ziel
+## ATC Audio Intelligence Dashboard
 
-Das UI ist bereits vollständig (Dark-Aviation-Dashboard, Heatmap-Grid, Transkript-Log, KI-Chat mit Markdown-Tabellen, Raw/Enhanced-Toggle, Legende). Das echte Problem: die Audio-Quellen in `src/data/feeds.ts` sind statische Wikimedia-OGGs aus 2009–2013 → seit 2 Stunden dieselbe Stimme, keine neuen Transkriptionen möglich.
+Hochmodernes "Mission-Critical" Dashboard im Dark Mode mit Glassmorphism, Neon-Grün-Akzent (ai-coustics Style) und Monospace für Daten/Transkripte. Audio + Transkripte sind aktuell Mock-Daten, der SkyWatch AI-Agent antwortet aber **echt** über das Lovable AI Gateway auf Basis der angezeigten Transkripte. Echte LiveATC-Streams + Whisper-Transkription folgen in einem späteren Schritt.
 
-Die hochgeladene `atc-ai-master.zip` enthält ein funktionierendes Python-Referenzprojekt mit `feeds.json` (echte LiveATC-Mounts wie `http://d.liveatc.net/lszb2_del_twr_app`, `lszb2_atis`, `lszb2_app_dep` …). Diese Mounts liefern Live-MP3-Streams, sind aber:
-- **HTTP only** (Mixed-Content-Block im HTTPS-Preview),
-- **CORS-frei** (Browser kann sie nicht direkt in WebAudio routen → Transkription bricht).
+### Design-System
+- **Hintergrund**: Tiefes Anthrazit/Schiefergrau, subtile Noise-/Grid-Overlay
+- **Akzent**: Neon-Grün (ai-coustics) für Speech, aktive States, Enhanced-Glow
+- **Status-Farben**: Speech (neon-grün), Silent (grau), Pending (gelb/amber), Playing (orange), Live (rot pulsierend → grün live)
+- **Glassmorphism**: `backdrop-blur` + halbtransparente Panels mit feinen Rändern (1px border, low-opacity)
+- **Typo**: Inter/Geist Sans für UI, JetBrains Mono für Transkripte, Zeitstempel und Tabellen
+- **Animationen**: Pulsierender Live-Button, Glow-Transition beim Enhanced-Toggle, Fade-in für Chat-Nachrichten
 
-Lösung: ein eigener TanStack-Server-Proxy hängt sich an den Upstream-Mount und pipet den MP3-Stream mit korrekten CORS- und Content-Type-Headern an den Browser.
+### Routen
+- `/` – Haupt-Dashboard
+- `/history` – Liste vergangener Sessions/Recordings (Mock)
+- `/settings` – Feed-Verwaltung, Audio-Defaults, AI-Modell-Auswahl
 
-## Umsetzung
+Gemeinsame Sticky-Sidebar / Top-Nav mit Logo "LiveATC AI-Analyzer" und Routen-Links.
 
-### 1. Server-Route `src/routes/api/atc-stream.$mount.ts`
-- GET-Handler, der `mount` aus den Params nimmt (whitelist-validiert gegen die Feed-Liste, um SSRF auszuschließen).
-- `fetch("http://d.liveatc.net/<mount>")` mit `User-Agent: Mozilla/5.0 ...` (LiveATC blockt sonst).
-- Response.body als ReadableStream zurückgeben mit Headern:
-  `Content-Type: audio/mpeg`, `Cache-Control: no-store`, `Access-Control-Allow-Origin: *`.
-- Fehlerfälle (Mount down, 404, Timeout) sauber an den Client melden, damit `PlayerHeatmap` das `error`-Overlay zeigt.
-- Mount-Whitelist als Konstante im File (oder importiert aus `src/data/feeds.ts`), damit niemand den Proxy für beliebige URLs missbraucht.
+### Dashboard-Layout (`/`)
 
-### 2. `src/data/feeds.ts` neu befüllen
-- Kuratiertes Subset aus `feeds.json` der ZIP, Format an bestehendes `Feed`-Type angepasst (id, label, station, region, bbox).
-- `audioUrl` zeigt jetzt auf `/api/atc-stream/<mount>` statt auf Wikimedia.
-- Vorgeschlagene Erst-Auswahl (gleich Mix EU/US, alle aktive Mounts):
-  - `lszb2_del_twr_app` – LSZB Bern Del/Twr/App/Dep (passt zur bisherigen Demo)
-  - `lszb2_atis` – LSZB ATIS (loopt, gut für Test)
-  - `kjfk_twr` – KJFK Tower (sehr aktiv)
-  - `klax_twr` – KLAX Tower
-  - `eddf_twr` – EDDF Frankfurt Tower
-  - `lszh_twr` – LSZH Zürich Tower
-- `segments` aus dem alten File wird zu einer rein optischen Größe (Live-Stream hat keine feste Dauer) – `PlayerHeatmap` wird daher in Schritt 3 angepasst.
+**1. Top Control Bar (sticky, glass)**
+- Links: Logo "LiveATC AI-Analyzer" mit kleinem Radar-Icon
+- Feed-Dropdown: "LSZB Twr/App/Dep (358 seg)" + weitere Demo-Feeds (LSZH, EDDF, KJFK …)
+- Mitte: Toggle "Raw Audio ↔ Enhanced (ai-coustics)" – Enhanced-Modus glüht neon-grün, kleiner Equalizer-Indikator
+- "Go Live" Button: rot pulsierend (inactive) → grün solid mit Live-Dot (active)
+- Rechts: Legende (Speech / Silent / Pending / Playing) als kleine farbige Quadrate mit Labels
 
-### 3. `PlayerHeatmap.tsx` für Endlos-Streams ertüchtigen
-- Wenn `audio.duration === Infinity` (Live-Stream): Slider/Position-Anzeige ausblenden bzw. durch „LIVE · läuft seit X" ersetzen, Heatmap rollt nur vorwärts (kein Seek).
-- `seekTo` für Live-Streams deaktivieren.
-- Skip-Buttons ausblenden, wenn Live.
-- Heatmap-Cells werden über die letzten N Sekunden Audio-Energie (vom bestehenden Web-Audio-Graph via AnalyserNode) live gefüllt, statt aus statischen Mock-Segmenten – so passt das Grid-Visual zur tatsächlichen Sprach/Stille-Verteilung des Live-Streams.
+**2. Audio Player + Activity Heatmap**
+- Glass-Card mit modernem Player: Play/Pause, Skip ±10s, Fortschrittsbalken (klickbar), Zeitanzeige (Mono), Lautstärke-Slider
+- Darunter Activity Heatmap: ~40×10 Grid abgerundeter Quadrate
+  - Deterministisch generiert mit realistischer Verteilung (~70% silent, ~25% speech, einige pending, 1 playing)
+  - Hover zeigt Tooltip mit Segment-Zeit + Status
+  - Klick auf Segment springt im Player zu dieser Position
 
-### 4. UI-Hinweise / Status
-- `TopControlBar.tsx`: Feed-Dropdown zeigt zusätzlich den Mount-Namen + Frequenz (aus `feeds.json` übernommen, z.B. „LSZB Del/Twr/App – 121.905 / 119.350").
-- Klarer Hinweis im Player, falls der Stream gerade `silent` ist (LiveATC sendet bei keinem Funk lautlos weiter, das ist normal und kein Fehler).
+**3. Split-Screen unten (2 Spalten, gleich hoch, scrollbar)**
 
-### 5. Was NICHT Teil dieses Plans ist
-- Kein neues UI-Re-Design – das aktuelle erfüllt deinen Brief bereits 1:1.
-- Kein Port des Python-Backends (`agent.py`, `transcribe.py` aus der ZIP). Die Web-App nutzt weiterhin `/api/transcribe` (Lovable AI Gateway, Gemini), nur die Audio-Quelle ändert sich.
-- Kein Aktivieren von ai-coustics-Enhancement serverseitig – der bestehende clientseitige WebAudio-Filter („Enhanced"-Toggle) bleibt als Light-Variante.
+*Linke Spalte – Live Transcript Window*
+- Terminal-/Log-Look mit dezentem Grid-Hintergrund
+- Jede Zeile: `15:37:30` (Mono, gedimmt) + Status-Icon (🚫 silent, ✈️ speech) + Transkript-Text
+- Callsigns wie "Hotel Bravo", "Swiss 123", "Speedbird" werden als Pills/farbig hervorgehoben (neon-grün auf dunklem Hintergrund)
+- Auto-scroll-to-bottom Toggle, Pause-Button beim Hover
+- Suchleiste oben zum Filtern der Transkripte
 
-## Rechtlicher Hinweis
-LiveATC.net erlaubt persönliches Anhören; ein öffentlicher Re-Stream / kommerzielle Nutzung ist nicht gedeckt. Diese Proxy-Route ist für deinen persönlichen Test gedacht; vor einem öffentlichen Publish solltest du LiveATC um Erlaubnis fragen oder auf VATSIM/eigene SDR-Quellen wechseln.
+*Rechte Spalte – AI Agent Interface*
+- Header: "Ask the SkyWatch Agent" + Sub: "Context: Last hour · 360 lines"
+- Chat-Verlauf:
+  - User-Bubbles rechts, akzent-blau
+  - Agent-Bubbles links, glass-grau, Markdown + Tabellen-Rendering (Tailwind-Tabelle mit Sticky-Header, Mono-Zellen)
+  - System-Hinweise zentriert klein grau (z.B. "uploading 2 files, analyzing 360 lines…")
+- **Funktional**: Edge Function `chat` ruft Lovable AI Gateway (`google/gemini-3-flash-preview`) mit SSE-Streaming auf. Aktuelles Transkript wird als Kontext mitgesendet. System-Prompt: "Du bist SkyWatch, ein ATC-Funk-Analyse-Assistent. Antworte präzise, nutze Markdown-Tabellen für strukturierte Daten (Spalten: Zeit (UTC), Rufzeichen, Details)."
+- Demo-Erstkonversation vorgefüllt (User-Frage + System-Status + Agent-Tabellenantwort mit "Hotel Fox – Lift off on route Sierra…")
+- Token-by-Token Streaming-Rendering, Stop-Button, Fehler-Toasts für 429/402
+- Eingabefeld unten mit Placeholder "e.g. which callsigns appeared most often?", Senden-Button (Icon + Enter)
 
-## Geänderte / neue Dateien
-- **NEU** `src/routes/api/atc-stream.$mount.ts` – Streaming-Proxy mit Whitelist
-- `src/data/feeds.ts` – echte Mounts statt Wikimedia
-- `src/components/PlayerHeatmap.tsx` – Live-Stream-Modus (kein Seek, AnalyserNode-Heatmap)
-- `src/components/TopControlBar.tsx` – Frequenz im Dropdown anzeigen
+### History-Seite (`/history`)
+- Tabelle/Liste vergangener Sessions: Datum, Feed, Dauer, Anzahl Speech-Segmente, Anzahl Callsigns
+- Jede Zeile klickbar (führt aktuell zurück zum Dashboard mit dieser Session – Mock)
+- Filter: Datum, Feed, nur mit AI-Zusammenfassung
 
-Nach Approval setze ich das in einem Rutsch um, du musst danach nur einmal „Go Live" + Play drücken und solltest innerhalb von ~15 s den ersten echten LSZB-Funkspruch im Transcript sehen.
+### Settings-Seite (`/settings`)
+- Feed-Management: Liste der konfigurierten Feeds, Add/Remove (Mock-Persistenz im LocalStorage)
+- Audio: Standard-Lautstärke, Auto-Enhanced-Toggle Default, Auto-Play
+- AI-Agent: Modellwahl (Flash / Pro), Kontextfenster (letzte 15 Min / 1 h / komplette Session), System-Prompt-Editor (advanced)
+
+### Technik & Backend
+- **Lovable Cloud** wird aktiviert für Edge Function + Secret-Verwaltung
+- Edge Function `chat` (SSE-Streaming, CORS, 429/402 Handling) wie im Standard-Pattern – nutzt `LOVABLE_API_KEY`
+- Mock-Transkripte als TypeScript-Modul (`src/data/mockTranscript.ts`), 360 Zeilen, realistische ATC-Phrasen mit Callsigns
+- Mock-Heatmap deterministisch aus Seed in `src/lib/heatmap.ts`
+- Settings persistieren via `localStorage`, History als statisches Mock-Array
+- Lucide-Icons: `Radio`, `Plane`, `Mic`, `MicOff`, `Play`, `Pause`, `Volume2`, `Send`, `Sparkles`, `Activity`, `Settings`, `History`, `Search`
+
+### Späterer Ausbau (nicht in diesem Schritt)
+- Echte LiveATC-Stream-Anbindung (Backend-Proxy + HLS)
+- Whisper-basierte Echtzeit-Transkription
+- ai-coustics Audio-Enhancement (echte API)
+- Speicherung von Sessions in Lovable Cloud DB statt LocalStorage

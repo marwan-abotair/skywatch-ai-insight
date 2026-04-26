@@ -12,9 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
-import { Route as ApiAtcStreamMountRouteImport } from './routes/api/atc-stream.$mount'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -31,19 +29,9 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
-  id: '/api/transcribe',
-  path: '/api/transcribe',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAtcStreamMountRoute = ApiAtcStreamMountRouteImport.update({
-  id: '/api/atc-stream/$mount',
-  path: '/api/atc-stream/$mount',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -52,16 +40,12 @@ export interface FileRoutesByFullPath {
   '/history': typeof HistoryRoute
   '/settings': typeof SettingsRoute
   '/api/chat': typeof ApiChatRoute
-  '/api/transcribe': typeof ApiTranscribeRoute
-  '/api/atc-stream/$mount': typeof ApiAtcStreamMountRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
   '/settings': typeof SettingsRoute
   '/api/chat': typeof ApiChatRoute
-  '/api/transcribe': typeof ApiTranscribeRoute
-  '/api/atc-stream/$mount': typeof ApiAtcStreamMountRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -69,34 +53,13 @@ export interface FileRoutesById {
   '/history': typeof HistoryRoute
   '/settings': typeof SettingsRoute
   '/api/chat': typeof ApiChatRoute
-  '/api/transcribe': typeof ApiTranscribeRoute
-  '/api/atc-stream/$mount': typeof ApiAtcStreamMountRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/history'
-    | '/settings'
-    | '/api/chat'
-    | '/api/transcribe'
-    | '/api/atc-stream/$mount'
+  fullPaths: '/' | '/history' | '/settings' | '/api/chat'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/history'
-    | '/settings'
-    | '/api/chat'
-    | '/api/transcribe'
-    | '/api/atc-stream/$mount'
-  id:
-    | '__root__'
-    | '/'
-    | '/history'
-    | '/settings'
-    | '/api/chat'
-    | '/api/transcribe'
-    | '/api/atc-stream/$mount'
+  to: '/' | '/history' | '/settings' | '/api/chat'
+  id: '__root__' | '/' | '/history' | '/settings' | '/api/chat'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -104,8 +67,6 @@ export interface RootRouteChildren {
   HistoryRoute: typeof HistoryRoute
   SettingsRoute: typeof SettingsRoute
   ApiChatRoute: typeof ApiChatRoute
-  ApiTranscribeRoute: typeof ApiTranscribeRoute
-  ApiAtcStreamMountRoute: typeof ApiAtcStreamMountRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -131,25 +92,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/transcribe': {
-      id: '/api/transcribe'
-      path: '/api/transcribe'
-      fullPath: '/api/transcribe'
-      preLoaderRoute: typeof ApiTranscribeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
       fullPath: '/api/chat'
       preLoaderRoute: typeof ApiChatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/atc-stream/$mount': {
-      id: '/api/atc-stream/$mount'
-      path: '/api/atc-stream/$mount'
-      fullPath: '/api/atc-stream/$mount'
-      preLoaderRoute: typeof ApiAtcStreamMountRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -160,18 +107,7 @@ const rootRouteChildren: RootRouteChildren = {
   HistoryRoute: HistoryRoute,
   SettingsRoute: SettingsRoute,
   ApiChatRoute: ApiChatRoute,
-  ApiTranscribeRoute: ApiTranscribeRoute,
-  ApiAtcStreamMountRoute: ApiAtcStreamMountRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

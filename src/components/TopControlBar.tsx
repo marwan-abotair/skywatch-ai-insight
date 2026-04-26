@@ -19,7 +19,6 @@ type Props = {
   onEnhancedChange: (v: boolean) => void;
   isLive: boolean;
   onToggleLive: () => void;
-  isPlaying?: boolean;
 };
 
 const LEGEND = [
@@ -36,7 +35,6 @@ export function TopControlBar({
   onEnhancedChange,
   isLive,
   onToggleLive,
-  isPlaying,
 }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -61,7 +59,7 @@ export function TopControlBar({
             >
               <Radio className="h-3.5 w-3.5 text-primary" />
               <span className="text-foreground">{feed.label}</span>
-              <span className="text-muted-foreground">· {feed.frequencies}</span>
+              <span className="text-muted-foreground">({feed.segments} seg)</span>
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
@@ -81,7 +79,7 @@ export function TopControlBar({
               >
                 <span>{f.label}</span>
                 <span className="text-[11px] text-muted-foreground">
-                  {f.station} · {f.frequencies} MHz
+                  {f.station} · {f.segments} segments
                 </span>
               </DropdownMenuItem>
             ))}
@@ -141,16 +139,6 @@ export function TopControlBar({
           ))}
         </div>
 
-        {/* Press-play hint when live but audio is paused */}
-        {isLive && !isPlaying && (
-          <span
-            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono text-pending bg-pending/10 border border-pending/40 animate-fade-in"
-            title="Click play in the audio player to start transcription"
-          >
-            ▶ Press play to start
-          </span>
-        )}
-
         {/* Go Live button */}
         <button
           onClick={onToggleLive}
@@ -167,7 +155,7 @@ export function TopControlBar({
               isLive ? "bg-primary-foreground" : "bg-white",
             )}
           />
-          {isLive ? (isPlaying ? "LIVE" : "LIVE · paused") : "Go Live"}
+          {isLive ? "LIVE" : "Go Live"}
         </button>
       </div>
     </header>
