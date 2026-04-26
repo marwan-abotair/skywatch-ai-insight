@@ -61,7 +61,7 @@ export function TopControlBar({
             >
               <Radio className="h-3.5 w-3.5 text-primary" />
               <span className="text-foreground">{feed.label}</span>
-              <span className="text-muted-foreground">({feed.segments} seg)</span>
+              <span className="text-muted-foreground">· {feed.frequencies}</span>
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
@@ -81,7 +81,7 @@ export function TopControlBar({
               >
                 <span>{f.label}</span>
                 <span className="text-[11px] text-muted-foreground">
-                  {f.station} · {f.segments} segments
+                  {f.station} · {f.frequencies} MHz
                 </span>
               </DropdownMenuItem>
             ))}
