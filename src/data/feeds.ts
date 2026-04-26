@@ -1,72 +1,87 @@
 export type Feed = {
   id: string;
+  /** LiveATC mount name (path on d.liveatc.net). Doubles as proxy whitelist key. */
+  mount: string;
   label: string;
-  segments: number;
   station: string;
-  audioUrl: string;
   region: "EU" | "US";
-  // Optional bbox [latMin, lonMin, latMax, lonMax] for the live map view
+  /** Comma-separated frequencies for display (e.g. "121.905 / 119.350"). */
+  frequencies: string;
+  /** True for endless live MP3 streams (no duration / no seek). */
+  isLive: boolean;
+  /** Browser-facing audio URL — points to our same-origin streaming proxy. */
+  audioUrl: string;
+  /** Optional bbox for the live flight map. */
   bbox?: [number, number, number, number];
 };
 
-// All audio files: Wikimedia Commons, CC-licensed, CORS-enabled.
-// Verified URLs via MediaWiki API (April 2026).
-export const FEEDS: Feed[] = [
+/**
+ * Curated subset of LiveATC mounts. The list is also used as the proxy's
+ * SSRF whitelist — DO NOT add a mount here without verifying it on
+ * https://www.liveatc.net/ first.
+ */
+const MOUNTS = [
   {
-    id: "eham",
-    label: "EHAM Schiphol ATIS",
-    segments: 358,
-    station: "Amsterdam Schiphol",
-    audioUrl: "https://upload.wikimedia.org/wikipedia/commons/8/87/ATIS_Schiphol.ogg",
-    region: "EU",
-    bbox: [51.0, 3.0, 53.7, 7.5],
+    id: "lszb-twr",
+    mount: "lszb2_del_twr_app",
+    label: "LSZB Del / Twr / App / Dep",
+    station: "Bern-Belp",
+    region: "EU" as const,
+    frequencies: "121.905 / 119.350 / 127.325",
+    bbox: [46.5, 6.8, 47.4, 8.2] as [number, number, number, number],
   },
   {
-    id: "lfpo",
-    label: "LFPO Paris-Orly ATIS",
-    segments: 412,
-    station: "Paris Orly",
-    audioUrl: "https://upload.wikimedia.org/wikipedia/commons/b/b5/Atis_Paris-Orly.ogg",
-    region: "EU",
-    bbox: [47.5, 1.0, 50.0, 4.5],
+    id: "lszb-atis",
+    mount: "lszb2_atis",
+    label: "LSZB ATIS",
+    station: "Bern-Belp",
+    region: "EU" as const,
+    frequencies: "125.130",
+    bbox: [46.5, 6.8, 47.4, 8.2] as [number, number, number, number],
   },
   {
-    id: "lfbo",
-    label: "LFBO Toulouse ATIS",
-    segments: 244,
-    station: "Toulouse-Blagnac",
-    audioUrl: "https://upload.wikimedia.org/wikipedia/commons/2/28/LFBO_atis.ogg",
-    region: "EU",
-    bbox: [42.5, -0.5, 45.0, 3.5],
+    id: "lszh-twr",
+    mount: "lszh_twr",
+    label: "LSZH Tower",
+    station: "Zürich",
+    region: "EU" as const,
+    frequencies: "118.100",
+    bbox: [47.0, 8.1, 47.9, 9.2] as [number, number, number, number],
   },
   {
-    id: "kjfk",
-    label: "KJFK NY TRACON",
-    segments: 489,
+    id: "eddf-twr",
+    mount: "eddf_twr",
+    label: "EDDF Tower",
+    station: "Frankfurt",
+    region: "EU" as const,
+    frequencies: "119.900 / 124.850",
+    bbox: [49.7, 8.0, 50.5, 9.3] as [number, number, number, number],
+  },
+  {
+    id: "kjfk-twr",
+    mount: "kjfk_twr",
+    label: "KJFK Tower",
     station: "New York JFK",
-    audioUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/7/72/New_York_Control_tower_to_NY_TRACON.ogg",
-    region: "US",
-    bbox: [40.0, -75.0, 41.5, -72.5],
+    region: "US" as const,
+    frequencies: "119.100 / 123.900",
+    bbox: [40.4, -74.3, 41.0, -73.4] as [number, number, number, number],
   },
   {
-    id: "klga",
-    label: "KLGA Flight 1549",
-    segments: 521,
-    station: "New York LaGuardia",
-    audioUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/b/b5/Flight_1549_FAA_New_York_TRACON_audio_extract.ogg",
-    region: "US",
-    bbox: [40.5, -74.5, 41.2, -73.5],
+    id: "klax-twr",
+    mount: "klax_twr",
+    label: "KLAX Tower",
+    station: "Los Angeles",
+    region: "US" as const,
+    frequencies: "120.950 / 133.900",
+    bbox: [33.7, -118.7, 34.3, -117.9] as [number, number, number, number],
   },
-  {
-    id: "zuuu",
-    label: "ZUUU Chengdu ATIS",
-    segments: 472,
-    station: "Chengdu Shuangliu",
-    audioUrl:
-      "https://upload.wikimedia.org/wikipedia/commons/0/01/ATIS_of_CTU_on_2013-10-12.OGG",
-    region: "EU",
-    bbox: [29.5, 102.5, 32.0, 105.5],
-  },
-];
+] as const;
+
+export const FEEDS: Feed[] = MOUNTS.map((m) => ({
+  ...m,
+  isLive: true,
+  audioUrl: `/api/atc-stream/${m.mount}`,
+}));
+
+/** Whitelist of allowed LiveATC mount names. Used by the streaming proxy. */
+export const ALLOWED_MOUNTS: ReadonlySet<string> = new Set(MOUNTS.map((m) => m.mount));
