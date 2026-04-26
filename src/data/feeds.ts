@@ -6,14 +6,12 @@ export type Feed = {
   audioUrl: string;
 };
 
-// Free ATC sample recordings (archive.org / public domain)
-// Short loops, work as <audio src> with CORS enabled.
-const ATC_SAMPLE_1 =
-  "https://archive.org/download/atc-sample-recordings/ATC%20-%20JFK%20Tower.mp3";
-const ATC_SAMPLE_2 =
-  "https://archive.org/download/atc-sample-recordings/ATC%20-%20LAX%20Ground.mp3";
-const ATC_SAMPLE_3 =
-  "https://archive.org/download/atc-sample-recordings/ATC%20-%20Boston%20Approach.mp3";
+// Demo audio (CORS-enabled, public). The original archive.org ATC samples
+// returned 404/503 and broke playback — these stable demo MP3s are used as a
+// stand-in until a proper LiveATC-compatible source is wired in.
+const ATC_SAMPLE_1 = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
+const ATC_SAMPLE_2 = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3";
+const ATC_SAMPLE_3 = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3";
 
 export const FEEDS: Feed[] = [
   { id: "kjfk", label: "KJFK Tower", segments: 489, station: "New York JFK", audioUrl: ATC_SAMPLE_1 },
